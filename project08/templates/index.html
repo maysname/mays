@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Phaser Workshop - lesson 16: Randomizing gameplay</title>
+    <style>* { padding: 0; margin: 0; }</style>
+    <script src="/static/js/phaser.min.js"></script>
+    <style>
+        /* 添加返回登录按钮的样式 */
+    .back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #ccc;
+            color: #000;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="score-history"></div>
+    <button class="back-button" onclick="location.href='/login_register'">返回登录</button>
+    <script>
+        // 假设登录成功后，从后端获取到的用户名存储在这个变量中
+        var username = "{{ username }}";
+
+        // 创建一个 Phaser 实例，宽度为 480，高度 320，自动渲染模式,没有父容器，指定了游戏的预加载、创建和更新函数
+        var game = new Phaser.Game(480, 320, Phaser.AUTO, null, {
+            preload: preload,
+            create: create,
+            update: update
+        });
+
+        // 声明了多个变量，球，球拍，砖块组，得分，生命数等
+        var ball;
+        var paddle;
+        var bricks;
+        var newBrick;
+        var brickInfo;
+        var scoreText;
+        var score = 0;
+        var lives = 3;
+        var livesText;
+        var lifeLostText;
+        var playing = false;
+        var startButton;
+
+        // 预加载函数
+        function preload() {
+            game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+            game.scale.pageAlignHorizontally = true;
+            game.scale.pageAlignVertically = true;
+            game.stage.backgroundColor = '#eee';
+            // 加载游戏所需图片资源
+            game.load.image('paddle', '/static/img/paddle.png');
+            game.load.image('brick', '/static/img/brick.png');
+            game.load.spritesheet('ball', '/static/img/wobble.png', 20, 20);
+            game.load.spritesheet('button', '/static/img/button.png', 120, 40);
+        }
+
+        // 创建函数
+        function create() {
+            game.physics.startSystem(Phaser.Physics.ARCADE);
+            game.physics.arcade.checkCollision.down = false;
+            ball = game.add.sprite(game.world.width * 0.5, game.world.height - 25, 'ball');
+            ball.animations.add('wobble', [0, 1, 0, 2, 0, 1, 0, 2, 0], 24);
+            ball.anchor.set(0.5);
+            game.physics.enable(ball, Phaser.Physics.ARCADE);
+            ball.body.collideWorldBounds = true;
+            ball.body.bounce.set(1);
+            ball.checkWorldBounds = true;
+            ball.events.onOutOfBounds.add(ballLeaveScreen, this);
+            // 创建球拍对象
+            paddle = game.add.sprite(game.world.width * 0.5, game.world.height - 5, 'paddle');
+            paddle.anchor.set(0.5, 1);
+            game.physics.enable(paddle, Phaser.Physics.ARCADE);
+            paddle.body.immovable = true;
+            // 初始化砖块数
+            initBricks();
+            // 创建游戏文本对象，包括得分，生命数等等
+            textStyle = {
+                font: '18px Arial',
+                fill: '#0095DD'
+            };
+            scoreText = game.add.text(5, 5, 'Points: 0', textStyle);
+            livesText = game.add.text(game.world.width - 5, 5, 'Lives: ' + lives, textStyle);
+            livesText.anchor.set(1, 0);
+            lifeLostText = game.add.text(game.world.width * 0.5, game.world.height * 0.5, 'Life lost, tap to continue', textStyle);
+            lifeLostText.anchor.set(0.5);
+            lifeLostText.visible = false;
+
+            startButton = game.add.button(game.world.width * 0.5, game.world.height * 0.5, 'button', startGame, this, 1, 0, 2);
+            startButton.anchor.set(0.5);
+        }
+
+        // 更新函数
+        function update() {
+            game.physics.arcade.collide(ball, paddle, ballHitPaddle);
+            game.physics.arcade.collide(ball, bricks, ballHitBrick);
+            if (playing) {
+                paddle.x = game.input.x || game.world.width * 0.5;
+            }
+        }
+
+        // 初始化砖块函数
+        function initBricks() {
+            brickInfo = {
+                width: 50,
+                height: 20,
+                count: {
+                    row: 7,
+                    col: 3
+                },
+                offset: {
+                    top: 50,
+                    left: 60
+                },
+                padding: 10
+            }
+            bricks = game.add.group();
+            for (c = 0; c < brickInfo.count.col; c++) {
+                for (r = 0; r < brickInfo.count.row; r++) {
+                    var brickX = (r * (brickInfo.width + brickInfo.padding)) + brickInfo.offset.left;
+                    var brickY = (c * (brickInfo.height + brickInfo.padding)) + brickInfo.offset.top;
+                    newBrick = game.add.sprite(brickX, brickY, 'brick');
+                    game.physics.enable(newBrick, Phaser.Physics.ARCADE);
+                    newBrick.body.immovable = true;
+                    newBrick.anchor.set(0.5);
+                    bricks.add(newBrick);
+                }
+            }
+        }
+
+        // 球与砖块碰撞函数
+        function ballHitBrick(ball, brick) {
+            var killTween = game.add.tween(brick.scale);
+            killTween.to({
+                x: 0,
+                y: 0
+            }, 200, Phaser.Easing.Linear.None);
+            killTween.onComplete.addOnce(function () {
+                brick.kill();
+            }, this);
+            killTween.start();
+            score += 10;
+            scoreText.setText('Points: ' + score);
+            if (score === brickInfo.count.row * brickInfo.count.col * 10) {
+                alert('You won the game, congratulations!');
+                // 游戏胜利时，记录当前得分作为上一次游戏得分保存到后端
+                recordLastScore(score);
+            }
+        }
+
+        // 球离开屏幕函数
+        function ballLeaveScreen() {
+            lives--;
+            if (lives) {
+                livesText.setText('Lives: ' + lives);
+                lifeLostText.visible = true;
+                ball.reset(game.world.width * 0.5, game.world.height - 25);
+                paddle.reset(game.world.width * 0.5, 0);
+                game.input.onDown.addOnce(function () {
+                    lifeLostText.visible = false;
+                    ball.body.velocity.set(150, -150);
+                }, this);
+            } else {
+                alert('You lost, game over!');
+                // 游戏失败时，记录当前得分作为上一次游戏得分保存到后端
+                recordLastScore(score);
+            }
+        }
+
+        // 球与球拍碰撞函数
+        function ballHitPaddle(ball, paddle) {
+            ball.animations.play('wobble');
+            ball.body.velocity.x = -1 * 5 * (paddle.x - ball.x);
+        }
+
+        // 游戏开始函数
+        function startGame() {
+            startButton.destroy();
+            ball.body.velocity.set(150, -150);
+            playing = true;
+        }
+
+        // 新增函数，用于将上一次游戏得分记录到后端
+        function recordLastScore(score) {
+            fetch('/record_score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: username, last_score: score })
+            })
+         .then(response => response.json())
+         .then(data => {
+                    console.log(data.message);
+                });
+        }
+
+        // 新增的函数，用于从后端获取历史得分并展示
+        function getScoreHistory() {
+            fetch('/score_history?username=' + username)
+         .then(response => response.json())
+         .then(data => {
+                    if (data.scores) {
+                        const scoreList = document.createElement('ul');
+                        data.scores.forEach(score => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = `得分: ${score.score}, 日期: ${score.date}`;
+                            scoreList.appendChild(listItem);
+                        });
+                        document.getElementById('score-history').appendChild(scoreList);
+                    }
+                });
+        }
+
+    </script>
+</body>
+
+</html>

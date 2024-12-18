@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>敲砖块游戏 - 登录/注册/查询</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            margin: 0 auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+      .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+      .last-score {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+      .last-score h2 {
+            margin-bottom: 10px;
+        }
+
+      .query-form {
+            margin-top: 20px;
+        }
+
+      .query-form label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+      .query-form input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>敲砖块游戏 - 登录/注册/查询</h1>
+    <form id="login-form" method="post">
+        <input type="hidden" name="action" value="login">
+        <label for="username">用户名：</label>
+        <input type="text" id="username" name="username" required><br>
+        <label for="password">密码：</label>
+        <input type="password" id="password" name="password" required><br>
+        <button type="submit">登录</button>
+    </form>
+    <form id="register-form" method="post">
+        <input type="hidden" name="action" value="register">
+        <label for="username">用户名：</label>
+        <input type="text" id="username" name="username" required><br>
+        <label for="password">密码：</label>
+        <input type="password" id="password" name="password" required><br>
+        <button type="submit">注册</button>
+    </form>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <div class="last-score" style="display: none;">
+        <h2>上一次游戏得分：</h2>
+        <p id="last-score-value">{{ last_score }}</p>
+    </div>
+    <form class="query-form" method="post">
+        <input type="hidden" name="action" value="query_score">
+        <label for="query-username">查询上一次游戏得分用户名：</label>
+        <input type="text" id="query-username" required><br>
+        <button id="query-score-button">查询上一次游戏得分</button>
+    </form>
+    <script>
+        document.getElementById('query-score-button').addEventListener('click', function () {
+            var username = document.getElementById('query-username').value;
+            fetch('/query_score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ "query_username": username })
+            })
+         .then(response => response.json())
+         .then(data => {
+                    if (data.last_score!== undefined) {
+                        document.getElementById('last-score-value').textContent = data.last_score;
+                        document.querySelector('.last-score').style.display = 'block';
+                    } else {
+                        document.querySelector('.last-score').style.display = 'block';
+                        document.getElementById('last-score-value').textContent = '暂无得分记录';
+                    }
+                });
+        });
+    </script>
+</body>
+
+</html>
